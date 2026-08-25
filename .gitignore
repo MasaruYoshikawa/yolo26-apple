@@ -1,0 +1,36 @@
+# Byte-compiled / Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Large video files
+apple_video.mp4
+*.mp4
+*.avi
+*.mov
+*.mkv
+preview.mp4
+
+# Generated datasets and training/detection output runs
+apple_dataset/
+runs/
+yolo11*.pt
+yolov8*.pt
+yolo26*.pt
+
+# Model weight binaries (keep weights/ directory structure via .gitkeep)
+weights/*.pt
+!weights/.gitkeep
+
+# Virtual Environments & IDEs
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+*.swp

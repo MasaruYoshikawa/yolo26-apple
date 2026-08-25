@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+Apple Object Detection & Object Counter Script
+
+Runs inference on single images or directories of images using trained YOLO weights.
+Renders bounding boxes, confidence scores, class labels, and an Apple Count overlay banner.
+"""
+
+import os
+import sys
+import argparse
+from pathlib import Path
+
+
+def draw_apple_count_banner(image, apple_count, conf_threshold):
+    """Draws a clean top banner displaying the total number of detected apples."""
+    import cv2
+    h, w, _ = image.shape
+    banner_height = 60
+    
+    # Create translucent dark overlay for banner header
+    overlay = image.copy()
+    cv2.rectangle(overlay, (0, 0), (w, banner_height), (20, 30, 40), -1)
+    cv2.addWeighted(overlay, 0.85, image, 0.15, 0, image)
+
+    # Accent left border bar
+    cv2.rectangle(image, (0, 0), (8, banner_height), (0, 204, 102), -1)
+
+    # Banner text
+    title_text = f"Apple Detection | Count: {apple_count}"
+    sub_text = f"Conf Thresh: {conf_threshold:.2f}"
+
+    cv2.putText(image, title_text, (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(image, sub_text, (20, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 220, 200), 1, cv2.LINE_AA)
+
+    return image
+
+
+def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir, device, show):
+    import cv2
+    from ultralytics import YOLO
+
+    source_path = Path(source)
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load model
+    print(f"📦 Loading model from: {model_path}")
+    model = YOLO(model_path)
+
+    # Collect target images
+    if source_path.is_file():
+        image_paths = [source_path]
+    elif source_path.is_dir():
+        valid_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
+        image_paths = [p for p in source_path.rglob('*') if p.suffix.lower() in valid_exts]
+    else:
+        print(f"❌ Error: Source path '{source}' does not exist.")
+        sys.exit(1)
+
+    if not image_paths:
+        print(f"⚠️ No image files found in: {source_path}")
+        return
+
+    print(f"📷 Processing {len(image_paths)} images...")
+    total_apples = 0
+
+    for idx, img_path in enumerate(image_paths, 1):
+        # Run YOLO inference
+        results = model.predict(
+            source=str(img_path),
+            conf=conf_thresh,
+            iou=iou_thresh,
+            imgsz=imgsz,
+            device=device,
+            verbose=False
+        )[0]
+
+        img = cv2.imread(str(img_path))
+        if img is None:
+            continue
+
+        boxes = results.boxes
+        apple_count = len(boxes) if boxes is not None else 0
+        total_apples += apple_count
+
+        # Render custom bounding boxes
+        if boxes is not None:
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = float(box.conf[0])
+                cls_id = int(box.cls[0])
+                cls_name = model.names.get(cls_id, "apple")
+
+                # Bounding box color (Green for apples)
+                box_color = (46, 204, 113) # Vibrant BGR green
+                cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
+
+                # Label text
+                label = f"{cls_name} {conf:.2f}"
+                (text_w, text_h), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+
+                # Label background rectangle
+                cv2.rectangle(img, (x1, y1 - text_h - 6), (x1 + text_w + 6, y1), box_color, -1)
+                cv2.putText(img, label, (x1 + 3, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
+        # Render Apple Count Header Banner
+        img = draw_apple_count_banner(img, apple_count, conf_thresh)
+
+        # Save annotated image
+        save_path = out_dir / f"pred_{img_path.name}"
+        cv2.imwrite(str(save_path), img)
+
+        print(f"  [{idx}/{len(image_paths)}] {img_path.name}: {apple_count} apple(s) detected -> Saved: {save_path.name}")
+
+        if show:
+            cv2.imshow("Apple Detection", img)
+            if cv2.waitKey(0) & 0xFF == ord('q'):
+                break
+
+    if show:
+        cv2.destroyAllWindows()
+
+    avg_apples = total_apples / len(image_paths) if image_paths else 0
+    print("\n" + "=" * 50)
+    print("📊 DETECTION SUMMARY")
+    print("=" * 50)
+    print(f"Total Images Processed : {len(image_paths)}")
+    print(f"Total Apples Detected  : {total_apples}")
+    print(f"Average Apples / Image : {avg_apples:.2f}")
+    print(f"Annotated Outputs Saved: {out_dir.resolve()}")
+    print("=" * 50)
+
+
+def main():
+    # Find default model path if available
+    default_model = "weights/best.pt" if Path("weights/best.pt").exists() else "yolo11n.pt"
+
+    parser = argparse.ArgumentParser(description="Run Apple Detection on images")
+    parser.add_argument("--source", type=str, default="./apple_dataset/images/test",
+                        help="Path to image file or directory of images")
+    parser.add_argument("--model", type=str, default=default_model,
+                        help="Path to model weights (.pt file)")
+    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
+    parser.add_argument("--iou", type=float, default=0.45, help="NMS IoU threshold")
+    parser.add_argument("--imgsz", type=int, default=640, help="Inference image size")
+    parser.add_argument("--output-dir", type=str, default="runs/detect/predictions",
+                        help="Directory to save output images")
+    parser.add_argument("--device", type=str, default="", help="Device ('mps', 'cuda', 'cpu')")
+    parser.add_argument("--show", action="store_true", help="Display images in GUI window")
+
+    args = parser.parse_args()
+
+    run_detection(
+        source=args.source,
+        model_path=args.model,
+        conf_thresh=args.conf,
+        iou_thresh=args.iou,
+        imgsz=args.imgsz,
+        output_dir=args.output_dir,
+        device=args.device,
+        show=args.show
+    )
+
+
+if __name__ == "__main__":
+    main()
