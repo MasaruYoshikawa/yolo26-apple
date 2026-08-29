@@ -59,22 +59,24 @@ class AppleDetectionApp:
         
     def setup_styles(self):
         """UIのスタイルとカラーパレットを設定 (Meiryoフォントを使用してモダンなダークテーマを構成)"""
-        self.bg_color = "#1e1e2e"       # ダークスレートパープル
-        self.card_bg = "#252538"        # カード背景色
-        self.fg_color = "#cdd6f4"       # テキストカラー（オフホワイト）
+        self.bg_color = "#36384a"       # 明るめのスレートブルー背景
+        self.card_bg = "#43465e"        # 明るめのカード背景色
+        self.fg_color = "#f2f4fc"       # クリーンなオフホワイトテキスト
         self.accent_color = "#89b4fa"   # アクセント（ソフトブルー）
         self.success_color = "#a6e3a1"  # 成功（ソフトグリーン）
         self.warning_color = "#f9e2af"  # 警告（ソフトイエロー）
         self.text_dark = "#11111b"      # ボタンテキスト用ダークカラー
-        self.border_color = "#45475a"   # ボーダーカラー
+        self.border_color = "#585b70"   # 明るめのボーダーカラー
         
         self.root.configure(bg=self.bg_color)
         
+        # フォント設定（メイリオ）
+        font_name = "Meiryo"
+        self.root.option_add('*font', (font_name, 10))
+        self.root.option_add('*TCombobox*Listbox.font', (font_name, 10))
+        
         style = ttk.Style()
         style.theme_use('clam')
-        
-        # フォント設定
-        font_name = "Meiryo UI"
         
         # 各種コンポーネントのスタイル定義
         style.configure("TFrame", background=self.bg_color)
@@ -233,7 +235,7 @@ class AppleDetectionApp:
         log_label_frame.pack(fill=tk.X, pady=(5, 2))
         ttk.Label(log_label_frame, text="ログ出力コンソール:").pack(side=tk.LEFT)
         
-        self.log_text = scrolledtext.ScrolledText(main_container, bg="#181825", fg=self.fg_color, 
+        self.log_text = scrolledtext.ScrolledText(main_container, bg="#242635", fg=self.fg_color, 
                                                  insertbackground=self.fg_color, font=("Consolas", 10), 
                                                  height=16, borderwidth=1, relief="solid")
         self.log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
@@ -248,7 +250,7 @@ class AppleDetectionApp:
         
         # ステータスラベル
         self.progress_lbl_var = tk.StringVar(value="待機中")
-        self.progress_lbl = ttk.Label(actions_frame, textvariable=self.progress_lbl_var, font=("Meiryo UI", 9, "italic"))
+        self.progress_lbl = ttk.Label(actions_frame, textvariable=self.progress_lbl_var, font=("Meiryo", 9, "italic"))
         self.progress_lbl.pack(side=tk.LEFT)
         
         # 右側ボタン配置
