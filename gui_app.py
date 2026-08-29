@@ -85,7 +85,7 @@ class AppleDetectionApp:
         style.configure("Header.TLabel", background=self.bg_color, foreground=self.accent_color, font=(font_name, 16, "bold"))
         style.configure("CardHeader.TLabel", background=self.card_bg, foreground=self.accent_color, font=(font_name, 12, "bold"))
         style.configure("StatsVal.TLabel", background=self.card_bg, foreground=self.success_color, font=("Consolas", 14, "bold"))
-        style.configure("StatsLbl.TLabel", background=self.card_bg, foreground=self.fg_color, font=(font_name, 9.5))
+        style.configure("StatsLbl.TLabel", background=self.card_bg, foreground=self.fg_color, font=(font_name, 9))
 
         # ボタンのスタイル定義
         style.configure("TButton", font=(font_name, 10, "bold"), borderwidth=0, focuscolor="none")
@@ -248,7 +248,7 @@ class AppleDetectionApp:
         
         # ステータスラベル
         self.progress_lbl_var = tk.StringVar(value="待機中")
-        self.progress_lbl = ttk.Label(actions_frame, textvariable=self.progress_lbl_var, font=("Meiryo UI", 9.5, "italic"))
+        self.progress_lbl = ttk.Label(actions_frame, textvariable=self.progress_lbl_var, font=("Meiryo UI", 9, "italic"))
         self.progress_lbl.pack(side=tk.LEFT)
         
         # 右側ボタン配置
