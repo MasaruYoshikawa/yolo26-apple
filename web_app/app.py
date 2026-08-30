@@ -113,7 +113,7 @@ async def index(request: Request):
     except Exception as e:
         model_name = f"Error loading model: {str(e)}"
         
-    return templates.TemplateResponse("index.html", {"request": request, "model_name": model_name})
+    return templates.TemplateResponse(request=request, name="index.html", context={"model_name": model_name})
 
 @app.post("/detect")
 async def detect(
