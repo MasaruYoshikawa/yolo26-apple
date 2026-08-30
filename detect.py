@@ -36,16 +36,22 @@ def draw_apple_count_banner(image, apple_count, conf_threshold):
     return image
 
 
-def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir, device, show):
+def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir, device, show, progress_callback=None, log_callback=None):
     import cv2
     from ultralytics import YOLO
+
+    def log(msg):
+        if log_callback:
+            log_callback(msg)
+        else:
+            print(msg)
 
     source_path = Path(source)
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load model
-    print(f"📦 Loading model from: {model_path}")
+    log(f"📦 Loading model from: {model_path}")
     model = YOLO(model_path)
 
     # Collect target images
@@ -55,15 +61,16 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
         valid_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
         image_paths = [p for p in source_path.rglob('*') if p.suffix.lower() in valid_exts]
     else:
-        print(f"❌ Error: Source path '{source}' does not exist.")
+        log(f"❌ Error: Source path '{source}' does not exist.")
         sys.exit(1)
 
     if not image_paths:
-        print(f"⚠️ No image files found in: {source_path}")
+        log(f"⚠️ No image files found in: {source_path}")
         return
 
-    print(f"📷 Processing {len(image_paths)} images...")
+    log(f"📷 Processing {len(image_paths)} images...")
     total_apples = 0
+    results_list = []
 
     for idx, img_path in enumerate(image_paths, 1):
         # Run YOLO inference
@@ -83,6 +90,10 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
         boxes = results.boxes
         apple_count = len(boxes) if boxes is not None else 0
         total_apples += apple_count
+        results_list.append({
+            'image_name': img_path.name,
+            'apple_count': apple_count
+        })
 
         # Render custom bounding boxes
         if boxes is not None:
@@ -111,7 +122,9 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
         save_path = out_dir / f"pred_{img_path.name}"
         cv2.imwrite(str(save_path), img)
 
-        print(f"  [{idx}/{len(image_paths)}] {img_path.name}: {apple_count} apple(s) detected -> Saved: {save_path.name}")
+        log(f"  [{idx}/{len(image_paths)}] {img_path.name}: {apple_count} apple(s) detected -> Saved: {save_path.name}")
+        if progress_callback:
+            progress_callback(idx, len(image_paths))
 
         if show:
             cv2.imshow("Apple Detection", img)
@@ -122,14 +135,32 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
         cv2.destroyAllWindows()
 
     avg_apples = total_apples / len(image_paths) if image_paths else 0
-    print("\n" + "=" * 50)
-    print("📊 DETECTION SUMMARY")
-    print("=" * 50)
-    print(f"Total Images Processed : {len(image_paths)}")
-    print(f"Total Apples Detected  : {total_apples}")
-    print(f"Average Apples / Image : {avg_apples:.2f}")
-    print(f"Annotated Outputs Saved: {out_dir.resolve()}")
-    print("=" * 50)
+
+    # Write results to CSV
+    csv_path = out_dir / "カウント結果.csv"
+    import csv
+    try:
+        with open(csv_path, mode='w', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            writer.writerow(['画像ファイル名', '検出個数'])
+            for res in results_list:
+                writer.writerow([res['image_name'], res['apple_count']])
+            writer.writerow([])
+            writer.writerow(['対象画像総数', len(image_paths)])
+            writer.writerow(['検出総数', total_apples])
+            writer.writerow(['平均検出数（画像あたり）', f"{avg_apples:.2f}"])
+        log(f"📊 CSV results saved to: {csv_path.resolve()}")
+    except Exception as e:
+        log(f"⚠️ Warning: Failed to write CSV results: {e}")
+
+    log("\n" + "=" * 50)
+    log("📊 DETECTION SUMMARY")
+    log("=" * 50)
+    log(f"Total Images Processed : {len(image_paths)}")
+    log(f"Total Apples Detected  : {total_apples}")
+    log(f"Average Apples / Image : {avg_apples:.2f}")
+    log(f"Annotated Outputs Saved: {out_dir.resolve()}")
+    log("=" * 50)
 
 
 def main():

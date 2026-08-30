@@ -24,7 +24,7 @@ yolov8*.pt
 yolo26*.pt
 
 # Model weight binaries (keep weights/ directory structure via .gitkeep)
-weights/*.pt
+# weights/*.pt
 !weights/.gitkeep
 
 # Virtual Environments & IDEs
@@ -34,3 +34,8 @@ env/
 .idea/
 .vscode/
 *.swp
+
+# PyInstaller distribution and build outputs
+dist/
+build/
+

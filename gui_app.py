@@ -24,8 +24,18 @@ class AppleDetectionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("りんご物体検出・個数カウントシステム")
-        self.root.geometry("900x700")
-        self.root.minsize(800, 650)
+        # Centering the window on the screen on startup
+        width = 1000
+        height = 820
+        self.root.update_idletasks()
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x = (screen_width / 2) - (width / 2)
+        y = (screen_height / 2) - (height / 2)
+        if y < 0:
+            y = 0
+        self.root.geometry(f"{width}x{height}+{int(x)}+{int(y)}")
+        self.root.minsize(900, 750)
         
         # 実行パスの解決 (PyInstallerでパッケージ化された場合にも対応)
         if getattr(sys, 'frozen', False):
@@ -58,15 +68,16 @@ class AppleDetectionApp:
         self.create_widgets()
         
     def setup_styles(self):
-        """UIのスタイルとカラーパレットを設定 (Meiryoフォントを使用してモダンなダークテーマを構成)"""
-        self.bg_color = "#36384a"       # 明るめのスレートブルー背景
-        self.card_bg = "#43465e"        # 明るめのカード背景色
-        self.fg_color = "#f2f4fc"       # クリーンなオフホワイトテキスト
-        self.accent_color = "#89b4fa"   # アクセント（ソフトブルー）
-        self.success_color = "#a6e3a1"  # 成功（ソフトグリーン）
-        self.warning_color = "#f9e2af"  # 警告（ソフトイエロー）
-        self.text_dark = "#11111b"      # ボタンテキスト用ダークカラー
-        self.border_color = "#585b70"   # 明るめのボーダーカラー
+        """UIのスタイルとカラーパレットを設定 (Web版と合わせたプレミアムライトテーマ)"""
+        self.bg_color = "#f0f4f8"       # 薄いグレーブルー背景
+        self.card_bg = "#ffffff"        # 白いカード背景
+        self.fg_color = "#1e293b"       # ダークスレートテキスト
+        self.text_muted = "#64748b"     # ミュートグレーテキスト
+        self.accent_color = "#0f52ba"   # ブランドブルー
+        self.success_color = "#15803d"  # 成功の緑
+        self.warning_color = "#d97706"  # 警告のオレンジ
+        self.text_light = "#ffffff"     # ボタンテキスト用ライトカラー
+        self.border_color = "#cbd5e1"   # 薄いボーダーカラー
         
         self.root.configure(bg=self.bg_color)
         
@@ -87,23 +98,23 @@ class AppleDetectionApp:
         style.configure("Header.TLabel", background=self.bg_color, foreground=self.accent_color, font=(font_name, 16, "bold"))
         style.configure("CardHeader.TLabel", background=self.card_bg, foreground=self.accent_color, font=(font_name, 12, "bold"))
         style.configure("StatsVal.TLabel", background=self.card_bg, foreground=self.success_color, font=("Consolas", 14, "bold"))
-        style.configure("StatsLbl.TLabel", background=self.card_bg, foreground=self.fg_color, font=(font_name, 9))
+        style.configure("StatsLbl.TLabel", background=self.card_bg, foreground=self.text_muted, font=(font_name, 9))
 
         # ボタンのスタイル定義
-        style.configure("TButton", font=(font_name, 10, "bold"), borderwidth=0, focuscolor="none")
+        style.configure("TButton", font=(font_name, 10, "bold"), borderwidth=1, focuscolor="none", background=self.card_bg, foreground=self.fg_color)
         style.map("TButton",
-                  background=[("active", self.border_color), ("!disabled", self.card_bg)],
-                  foreground=[("active", self.fg_color), ("!disabled", self.fg_color)])
+                  background=[("active", "#e2e8f0"), ("disabled", "#f1f5f9"), ("!disabled", self.card_bg)],
+                  foreground=[("active", self.fg_color), ("disabled", "#94a3b8"), ("!disabled", self.fg_color)])
 
-        style.configure("Action.TButton", font=(font_name, 11, "bold"), background=self.success_color, foreground=self.text_dark)
+        style.configure("Action.TButton", font=(font_name, 11, "bold"), background=self.success_color, foreground=self.text_light)
         style.map("Action.TButton",
-                  background=[("active", "#b4f4af"), ("!disabled", self.success_color)],
-                  foreground=[("active", self.text_dark), ("!disabled", self.text_dark)])
+                  background=[("active", "#166534"), ("disabled", "#94a3b8"), ("!disabled", self.success_color)],
+                  foreground=[("active", self.text_light), ("disabled", "#ffffff"), ("!disabled", self.text_light)])
 
-        style.configure("Open.TButton", font=(font_name, 10, "bold"), background=self.accent_color, foreground=self.text_dark)
+        style.configure("Open.TButton", font=(font_name, 10, "bold"), background=self.accent_color, foreground=self.text_light)
         style.map("Open.TButton",
-                  background=[("active", "#99c4ff"), ("!disabled", self.accent_color)],
-                  foreground=[("active", self.text_dark), ("!disabled", self.text_dark)])
+                  background=[("active", "#0a3d91"), ("disabled", "#94a3b8"), ("!disabled", self.accent_color)],
+                  foreground=[("active", self.text_light), ("disabled", "#ffffff"), ("!disabled", self.text_light)])
 
         # 入力フィールドとコンボボックスのスタイル定義
         style.configure("TEntry", fieldbackground=self.card_bg, foreground=self.fg_color, bordercolor=self.border_color, darkcolor=self.border_color, lightcolor=self.border_color)
@@ -113,7 +124,7 @@ class AppleDetectionApp:
                   foreground=[("readonly", self.fg_color)])
 
         # プログレスバーのスタイル定義
-        style.configure("Horizontal.TProgressbar", thickness=15, troughcolor=self.card_bg, background=self.success_color, borderwidth=0)
+        style.configure("Horizontal.TProgressbar", thickness=15, troughcolor=self.card_bg, background=self.accent_color, borderwidth=0)
         
     def create_widgets(self):
         """ウィジェットの配置とレイアウト構成"""
@@ -235,11 +246,10 @@ class AppleDetectionApp:
         log_label_frame.pack(fill=tk.X, pady=(5, 2))
         ttk.Label(log_label_frame, text="ログ出力コンソール:").pack(side=tk.LEFT)
         
-        self.log_text = scrolledtext.ScrolledText(main_container, bg="#242635", fg=self.fg_color, 
+        self.log_text = scrolledtext.ScrolledText(main_container, bg="#ffffff", fg=self.fg_color, 
                                                  insertbackground=self.fg_color, font=("Consolas", 10), 
-                                                 height=16, borderwidth=1, relief="solid")
+                                                 height=16, borderwidth=1, relief="solid", state=tk.DISABLED)
         self.log_text.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
-        self.log_text.bind("<Key>", lambda e: "break") # 読み取り専用に設定
         
         # 初期ログ
         self.append_log("システム準備完了。画像フォルダを選択し、「処理開始」をクリックしてください。\n")
@@ -283,7 +293,9 @@ class AppleDetectionApp:
 
     def append_log(self, text):
         """コンソールへのログ追記"""
+        self.log_text.config(state=tk.NORMAL)
         self.log_text.insert(tk.END, text)
+        self.log_text.config(state=tk.DISABLED)
         self.log_text.see(tk.END)
 
     def thread_safe_log(self, text):
@@ -325,7 +337,9 @@ class AppleDetectionApp:
         self.stat_apples_val.config(text="-")
         self.stat_avg_val.config(text="-")
 
+        self.log_text.config(state=tk.NORMAL)
         self.log_text.delete('1.0', tk.END)
+        self.log_text.config(state=tk.DISABLED)
         self.append_log(f"▶️ りんご検出処理を開始しました: {src}\n")
         self.append_log(f"モデルパス    : {model}\n")
         self.append_log(f"出力フォルダ  : {out}\n")
@@ -353,11 +367,12 @@ class AppleDetectionApp:
             )
             
             # 処理完了後のコールバックをUIスレッドで呼ぶ
-            self.root.after(0, lambda: self.on_pipeline_success(src, out))
+            self.root.after(0, lambda s=src, o=out: self.on_pipeline_success(s, o))
             
         except Exception as e:
-            self.thread_safe_log(f"\n❌ パイプラインエラー: {str(e)}")
-            self.root.after(0, lambda: self.on_pipeline_failure(str(e)))
+            err_msg = str(e)
+            self.thread_safe_log(f"\n❌ パイプラインエラー: {err_msg}")
+            self.root.after(0, lambda msg=err_msg: self.on_pipeline_failure(msg))
 
     def on_pipeline_success(self, src, out):
         self.is_running = False
@@ -406,7 +421,9 @@ class AppleDetectionApp:
 
 def main():
     root = tk.Tk()
+    root.withdraw() # Hide default small window during initialization
     app = AppleDetectionApp(root)
+    root.deiconify() # Show the window only when fully configured and centered
     root.mainloop()
 
 
