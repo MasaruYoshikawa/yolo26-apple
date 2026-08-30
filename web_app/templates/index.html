@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI画像カウントツールを体験できます！</title>
+    
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for clean, modern icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Link to premium styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header class="app-header">
+            <h1>AI画像カウントツールを体験できます！</h1>
+            <p class="subtitle">写真をアップロードするだけで、AIが自動で対象物を検出・カウントします。</p>
+        </header>
+
+        <!-- Steps Indicator -->
+        <div class="steps-indicator">
+            <div class="step-item">
+                <i class="fa-solid fa-cloud-arrow-up icon-blue"></i>
+                <span>① 画像をアップロード</span>
+            </div>
+            <div class="step-arrow">
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+            <div class="step-item">
+                <i class="fa-solid fa-brain icon-blue"></i>
+                <span>② AIが自動検出・カウント</span>
+            </div>
+            <div class="step-arrow">
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+            <div class="step-item">
+                <i class="fa-solid fa-cloud-arrow-down icon-blue"></i>
+                <span>③ 結果を確認・ダウンロード</span>
+            </div>
+        </div>
+
+        <!-- Main Layout 3-Column Grid -->
+        <div class="main-grid">
+            
+            <!-- Column 1: Upload Image -->
+            <section class="column-card">
+                <div class="column-header">
+                    <h2>① 画像をアップロード</h2>
+                </div>
+                
+                <div class="glass-card inner-card">
+                    <h3 class="inner-title">画像をアップロードしてください</h3>
+                    
+                    <!-- Drag-and-drop Area -->
+                    <div class="upload-zone" id="drop-zone">
+                        <input type="file" id="file-input" accept="image/*" class="hidden">
+                        <div class="upload-icon">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <p class="upload-text-main">ここに画像をドラッグ＆ドロップ</p>
+                        <p class="upload-text-sub">または</p>
+                        <button class="btn btn-primary-blue" id="select-file-btn">ファイルを選択</button>
+                    </div>
+                    <span class="upload-hint">※ JPEG / PNG / WebP に対応しています</span>
+                    
+                    <!-- Original Image Preview -->
+                    <div class="image-preview-box mt-4 hidden" id="original-preview-box">
+                        <p class="preview-label">アップロード画像</p>
+                        <div class="image-container">
+                            <img src="" id="img-original" alt="アップロードされた画像">
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Column 2: AI Auto Detect & Count -->
+            <section class="column-card">
+                <div class="column-header">
+                    <h2>② AIが自動検出・カウント</h2>
+                </div>
+                
+                <div class="glass-card inner-card">
+                    <h3 class="inner-title">検出結果</h3>
+                    
+                    <!-- Apple Count Badge -->
+                    <div class="count-display">
+                        検出数： <span class="count-number" id="detection-count">0</span> 個
+                    </div>
+                    
+                    <!-- Annotated Image Display -->
+                    <div class="image-preview-box" id="annotated-preview-box">
+                        <div class="image-container placeholder-bg" id="annotated-container">
+                            <div class="placeholder-text" id="annotated-placeholder">
+                                <i class="fa-regular fa-image"></i>
+                                <p>画像がアップロードされると、<br>ここに検出結果が表示されます。</p>
+                            </div>
+                            <img src="" id="img-annotated" alt="検出結果画像" class="hidden">
+                        </div>
+                    </div>
+                    
+                    <!-- Sliders & Re-detect Settings -->
+                    <div class="settings-box mt-4">
+                        <h4 class="settings-title">検出設定 (調整可能)</h4>
+                        
+                        <div class="form-group">
+                            <div class="label-row">
+                                <label for="conf-thresh">Confidence (確信度しきい値)</label>
+                                <span class="value-display" id="conf-val">0.25</span>
+                            </div>
+                            <input type="range" id="conf-thresh" min="0.05" max="1.0" step="0.05" value="0.25">
+                        </div>
+
+                        <div class="form-group">
+                            <div class="label-row">
+                                <label for="iou-thresh">IoU (しきい値)</label>
+                                <span class="value-display" id="iou-val">0.45</span>
+                            </div>
+                            <input type="range" id="iou-thresh" min="0.05" max="1.0" step="0.05" value="0.45">
+                        </div>
+                        
+                        <button class="btn btn-primary-blue btn-full mt-2" id="re-detect-btn" disabled>
+                            <i class="fa-solid fa-arrows-rotate"></i> 再検出
+                        </button>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Column 3: Results & Downloads -->
+            <section class="column-card">
+                <div class="column-header">
+                    <h2>③ 結果を確認・ダウンロード</h2>
+                </div>
+                
+                <div class="glass-card inner-card">
+                    <h3 class="inner-title">結果のダウンロード</h3>
+                    
+                    <div class="download-buttons-group">
+                        <a href="#" class="btn btn-success btn-full" id="download-annotated-btn" download="detection_result.jpg">
+                            <i class="fa-regular fa-image"></i> 検出結果画像をダウンロード
+                        </a>
+                        <button class="btn btn-primary-blue btn-full" id="export-csv-btn">
+                            <i class="fa-solid fa-file-excel"></i> CSVをダウンロード
+                        </button>
+                    </div>
+                    
+                    <h3 class="inner-title mt-6">CSVプレビュー（一覧）</h3>
+                    
+                    <div class="table-wrapper">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>クラス</th>
+                                    <th>確信度</th>
+                                    <th>X</th>
+                                    <th>Y</th>
+                                    <th>幅</th>
+                                    <th>高さ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <tr class="empty-row" id="empty-history-row">
+                                    <td colspan="7">検出データはありません</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-footer-summary" id="table-footer-summary">
+                        合計： 0件
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Informational Marketing cards (Three columns) -->
+        <section class="info-panels-section mt-8">
+            <div class="info-grid">
+                
+                <!-- Card 1 -->
+                <div class="info-card">
+                    <h3 class="info-card-title theme-blue"><i class="fa-solid fa-check-double"></i> こんな方におすすめ！</h3>
+                    <ul class="info-card-list">
+                        <li><i class="fa-solid fa-circle-check text-blue-icon"></i> 商品・部品・農作物などの数量を数えたい方</li>
+                        <li><i class="fa-solid fa-circle-check text-blue-icon"></i> 目視でのカウント作業を自動化したい方</li>
+                        <li><i class="fa-solid fa-circle-check text-blue-icon"></i> 在庫確認や棚卸しを効率化したい方</li>
+                    </ul>
+                </div>
+                
+                <!-- Card 2 -->
+                <div class="info-card">
+                    <h3 class="info-card-title theme-green"><i class="fa-solid fa-bolt"></i> このツールのポイント</h3>
+                    <ul class="info-card-list">
+                        <li><i class="fa-solid fa-circle-check text-green-icon"></i> 写真をアップロードするだけの簡単操作</li>
+                        <li><i class="fa-solid fa-circle-check text-green-icon"></i> AIが自動で検出・カウント</li>
+                        <li><i class="fa-solid fa-circle-check text-green-icon"></i> 検出のしきい値 (Confidence / IoU) を調整可能</li>
+                        <li><i class="fa-solid fa-circle-check text-green-icon"></i> 結果画像とCSVをワンクリックでダウンロード</li>
+                    </ul>
+                </div>
+                
+                <!-- Card 3 -->
+                <div class="info-card warning-bg">
+                    <h3 class="info-card-title theme-orange"><i class="fa-solid fa-triangle-exclamation"></i> ※ ご注意</h3>
+                    <ul class="info-card-list">
+                        <li>対象物や撮影条件によって、検出精度は変わります。</li>
+                        <li>この体験版はサンプルです。実際のツールはお客様の用途に合わせてカスタマイズして納品します。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Quote Banner -->
+        <section class="cta-banner mt-8">
+            <div class="cta-left">
+                <div class="cta-icon">
+                    <i class="fa-solid fa-gift"></i>
+                </div>
+                <div class="cta-text">
+                    <h3>お客様専用のAI画像カウントツールを作成します！</h3>
+                    <p>対象物やご要望をお聞きし、最適なAIモデルとツールをご提案します。</p>
+                </div>
+            </div>
+            <div class="cta-right">
+                <a href="#" class="cta-button">ご相談・お見積りはこちら <i class="fa-solid fa-chevron-right"></i></a>
+            </div>
+        </section>
+
+        <!-- Bottom Disclaimer Footer -->
+        <footer class="app-footer">
+            <p>※ このWebページはサンプルです。実際のサービス内容とは異なる場合があります。</p>
+        </footer>
+    </div>
+    
+    <!-- Script code -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
