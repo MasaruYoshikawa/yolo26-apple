@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Apple Detection & Counter - Flask Backend Server
+Apple Detection & Counter - FastAPI Backend Server
 Runs YOLOv8 model inference on uploaded images, performs annotations, 
 and serves the web application dashboard.
 """
@@ -12,23 +12,36 @@ import time
 from pathlib import Path
 import cv2
 import numpy as np
-from flask import Flask, request, jsonify, render_template
+from fastapi import FastAPI, File, UploadFile, Form, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 
 # Resolve project paths
 APP_DIR = Path(__file__).parent.resolve()
 WORKSPACE_DIR = APP_DIR.parent.resolve()
 
-# Add parent dir to path to import detect module if needed,
-# though we write robust standalone detection logic here for the API.
+# Add parent dir to path
 sys.path.append(str(WORKSPACE_DIR))
 
-# Create Flask app
-app = Flask(__name__, 
-            template_folder=str(APP_DIR / "templates"),
-            static_folder=str(APP_DIR / "static"))
+# Create FastAPI app
+app = FastAPI(title="Apple Counter API")
 
-# Limit upload file size to 16MB
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+# Add CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount Static directory
+app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
+
+# Setup Jinja2 Templates
+templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
 # Model global cache
 YOLO_MODEL = None
@@ -90,10 +103,9 @@ def draw_apple_count_banner(image, apple_count, conf_threshold):
 
     return image
 
-@app.route('/')
-def index():
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
     """Serves the main application dashboard."""
-    # Ensure model weights path is displayed in UI if possible
     model_name = "best.pt (Custom Apple Model)"
     try:
         load_yolo_model()
@@ -101,29 +113,23 @@ def index():
     except Exception as e:
         model_name = f"Error loading model: {str(e)}"
         
-    return render_template('index.html', model_name=model_name)
+    return templates.TemplateResponse("index.html", {"request": request, "model_name": model_name})
 
-@app.route('/detect', methods=['POST'])
-def detect():
+@app.post("/detect")
+async def detect(
+    image: UploadFile = File(...),
+    conf: float = Form(0.25),
+    iou: float = Form(0.45),
+    imgsz: int = Form(640)
+):
     """API endpoint to run object detection on an uploaded image file."""
-    if 'image' not in request.files:
-        return jsonify({'success': False, 'error': 'No image file uploaded'}), 400
-        
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({'success': False, 'error': 'Empty filename'}), 400
-        
     try:
-        # Load settings parameters from query/form arguments
-        conf_thresh = float(request.form.get('conf', 0.25))
-        iou_thresh = float(request.form.get('iou', 0.45))
-        imgsz = int(request.form.get('imgsz', 640))
-        
         # Read image bytes into numpy array
-        file_bytes = np.frombuffer(file.read(), np.uint8)
+        contents = await image.read()
+        file_bytes = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         if img is None:
-            return jsonify({'success': False, 'error': 'Invalid image format'}), 400
+            return JSONResponse({'success': False, 'error': 'Invalid image format'}, status_code=400)
             
         # Get model instance
         model = load_yolo_model()
@@ -132,8 +138,8 @@ def detect():
         t0 = time.time()
         results = model.predict(
             source=img,
-            conf=conf_thresh,
-            iou=iou_thresh,
+            conf=conf,
+            iou=iou,
             imgsz=imgsz,
             verbose=False
         )[0]
@@ -148,7 +154,7 @@ def detect():
         if boxes is not None:
             for idx, box in enumerate(boxes, 1):
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                conf = float(box.conf[0])
+                box_conf = float(box.conf[0])
                 cls_id = int(box.cls[0])
                 cls_name = model.names.get(cls_id, "apple")
                 
@@ -158,7 +164,7 @@ def detect():
                 detections.append({
                     'no': idx,
                     'class': cls_name,
-                    'confidence': round(conf, 2),
+                    'confidence': round(box_conf, 2),
                     'x': x1,
                     'y': y1,
                     'w': w_box,
@@ -170,7 +176,7 @@ def detect():
                 cv2.rectangle(annotated_img, (x1, y1), (x2, y2), box_color, 2)
                 
                 # Label text
-                label = f"{cls_name} {conf:.2f}"
+                label = f"{cls_name} {box_conf:.2f}"
                 (text_w, text_h), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
                 
                 # Label background rectangle
@@ -178,24 +184,24 @@ def detect():
                 cv2.putText(annotated_img, label, (x1 + 3, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
                 
         # Draw the top header banner
-        annotated_img = draw_apple_count_banner(annotated_img, apple_count, conf_thresh)
+        annotated_img = draw_apple_count_banner(annotated_img, apple_count, conf)
         
         # Encode annotated image to JPEG base64
         _, buffer = cv2.imencode('.jpg', annotated_img)
         img_base64 = base64.b64encode(buffer).decode('utf-8')
         
-        return jsonify({
+        return {
             'success': True,
             'apple_count': apple_count,
             'inference_time_ms': round(inference_time_ms, 1),
             'image_data': f"data:image/jpeg;base64,{img_base64}",
             'detections': detections
-        })
+        }
         
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'error': f"Detection failed: {str(e)}"}), 500
+        return JSONResponse({'success': False, 'error': f"Detection failed: {str(e)}"}, status_code=500)
 
 if __name__ == '__main__':
     # Initialize the model on startup so that user doesn't wait on first request
@@ -204,4 +210,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"⚠️ Warning: Could not pre-load model weights: {e}")
         
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    import uvicorn
+    uvicorn.run("app:app", host='0.0.0.0', port=5000, reload=True)
