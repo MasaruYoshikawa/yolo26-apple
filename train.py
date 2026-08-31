@@ -52,13 +52,16 @@ def train_yolo(data_config, model_name, epochs, batch_size, imgsz, device, lr0, 
         verbose=True
     )
 
-    # Save best model to weights/best.pt
+    # Save best model dynamically to weights/<clean_name>_best.pt
     save_dir = Path(project) / name
     best_weights = save_dir / "weights" / "best.pt"
     
     weights_dir = Path("./weights")
     weights_dir.mkdir(parents=True, exist_ok=True)
-    destination_weights = weights_dir / "best.pt"
+    
+    # Format the destination weights file name dynamically (e.g., orange_model -> orange_best.pt)
+    clean_name = name.replace("_model", "")
+    destination_weights = weights_dir / f"{clean_name}_best.pt"
 
     if best_weights.exists():
         shutil.copy2(best_weights, destination_weights)

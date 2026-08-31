@@ -8,10 +8,17 @@ and generates apple_dataset.yaml.
 """
 
 import os
+import sys
 import json
 import shutil
 import argparse
 from pathlib import Path
+
+# Configure stdout to handle utf-8 on Windows command prompts
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
 
 
 def convert_bbox_coco_to_yolo(coco_bbox, img_width, img_height):
@@ -140,8 +147,11 @@ def convert_dataset(coco_dir, output_dir):
 
         print(f"✅ Split '{split}' complete: {converted_count} images, {bbox_count} bounding boxes.")
 
-    # Create dataset yaml file
-    yaml_path = out_path / "apple_dataset.yaml"
+    # Create dataset yaml file dynamically based on output directory name
+    yaml_name = out_path.name
+    if yaml_name.endswith("_yolo"):
+        yaml_name = yaml_name[:-5] # remove '_yolo' suffix if present
+    yaml_path = out_path / f"{yaml_name}.yaml"
     with open(yaml_path, 'w', encoding='utf-8') as yf:
         yf.write(f"path: {out_path.as_posix()}\n")
         yf.write(f"train: images/train\n")
