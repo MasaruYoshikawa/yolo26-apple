@@ -12,8 +12,21 @@ import argparse
 from pathlib import Path
 
 
-def draw_apple_count_banner(image, apple_count, conf_threshold):
-    """Draws a clean top banner displaying the total number of detected apples."""
+def get_fruit_color(fruit_name):
+    """Returns distinct BGR colors for different fruit targets."""
+    name = str(fruit_name).lower()
+    if "orange" in name:
+        return (30, 144, 255)    # Vibrant Amber / Orange (BGR)
+    elif "blueberry" in name or "berry" in name:
+        return (225, 105, 65)    # Royal Indigo / Violet (BGR)
+    elif "apple" in name:
+        return (113, 204, 46)    # Emerald Green (BGR)
+    else:
+        return (113, 204, 46)    # Default Theme Accent
+
+
+def draw_fruit_count_banner(image, count, conf_threshold, fruit_name="Fruit"):
+    """Draws a clean top banner displaying the total number of detected fruits."""
     import cv2
     h, w, _ = image.shape
     banner_height = 60
@@ -23,11 +36,15 @@ def draw_apple_count_banner(image, apple_count, conf_threshold):
     cv2.rectangle(overlay, (0, 0), (w, banner_height), (20, 30, 40), -1)
     cv2.addWeighted(overlay, 0.85, image, 0.15, 0, image)
 
-    # Accent left border bar
-    cv2.rectangle(image, (0, 0), (8, banner_height), (0, 204, 102), -1)
+    # Accent left border bar based on fruit type
+    accent_color = get_fruit_color(fruit_name)
+    cv2.rectangle(image, (0, 0), (8, banner_height), accent_color, -1)
+
+    # Capitalize fruit name
+    display_name = fruit_name.capitalize() if fruit_name else "Fruit"
 
     # Banner text
-    title_text = f"Apple Detection | Count: {apple_count}"
+    title_text = f"{display_name} Detection | Count: {count}"
     sub_text = f"Conf Thresh: {conf_threshold:.2f}"
 
     cv2.putText(image, title_text, (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
@@ -36,7 +53,7 @@ def draw_apple_count_banner(image, apple_count, conf_threshold):
     return image
 
 
-def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir, device, show, progress_callback=None, log_callback=None):
+def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir, device, show, fruit_name=None, progress_callback=None, log_callback=None):
     import cv2
     from ultralytics import YOLO
 
@@ -54,6 +71,16 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
     log(f"📦 Loading model from: {model_path}")
     model = YOLO(model_path)
 
+    # Determine primary fruit name if not specified
+    if not fruit_name:
+        if hasattr(model, 'names') and model.names:
+            first_cls = str(model.names.get(0, "Fruit")).strip()
+            fruit_name = first_cls if first_cls and first_cls.lower() != "0" else "Fruit"
+        else:
+            fruit_name = "Fruit"
+
+    log(f"🎯 Target Object: {fruit_name.capitalize()}")
+
     # Collect target images
     if source_path.is_file():
         image_paths = [source_path]
@@ -69,8 +96,9 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
         return
 
     log(f"📷 Processing {len(image_paths)} images...")
-    total_apples = 0
+    total_count = 0
     results_list = []
+    box_color = get_fruit_color(fruit_name)
 
     for idx, img_path in enumerate(image_paths, 1):
         # Run YOLO inference
@@ -88,11 +116,11 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
             continue
 
         boxes = results.boxes
-        apple_count = len(boxes) if boxes is not None else 0
-        total_apples += apple_count
+        det_count = len(boxes) if boxes is not None else 0
+        total_count += det_count
         results_list.append({
             'image_name': img_path.name,
-            'apple_count': apple_count
+            'fruit_count': det_count
         })
 
         # Render custom bounding boxes
@@ -101,10 +129,8 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                 conf = float(box.conf[0])
                 cls_id = int(box.cls[0])
-                cls_name = model.names.get(cls_id, "apple")
+                cls_name = model.names.get(cls_id, fruit_name)
 
-                # Bounding box color (Green for apples)
-                box_color = (46, 204, 113) # Vibrant BGR green
                 cv2.rectangle(img, (x1, y1), (x2, y2), box_color, 2)
 
                 # Label text
@@ -115,26 +141,26 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
                 cv2.rectangle(img, (x1, y1 - text_h - 6), (x1 + text_w + 6, y1), box_color, -1)
                 cv2.putText(img, label, (x1 + 3, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
 
-        # Render Apple Count Header Banner
-        img = draw_apple_count_banner(img, apple_count, conf_thresh)
+        # Render Count Header Banner
+        img = draw_fruit_count_banner(img, det_count, conf_thresh, fruit_name=fruit_name)
 
         # Save annotated image
         save_path = out_dir / f"pred_{img_path.name}"
         cv2.imwrite(str(save_path), img)
 
-        log(f"  [{idx}/{len(image_paths)}] {img_path.name}: {apple_count} apple(s) detected -> Saved: {save_path.name}")
+        log(f"  [{idx}/{len(image_paths)}] {img_path.name}: {det_count} {fruit_name}(s) detected -> Saved: {save_path.name}")
         if progress_callback:
             progress_callback(idx, len(image_paths))
 
         if show:
-            cv2.imshow("Apple Detection", img)
+            cv2.imshow(f"{fruit_name.capitalize()} Detection", img)
             if cv2.waitKey(0) & 0xFF == ord('q'):
                 break
 
     if show:
         cv2.destroyAllWindows()
 
-    avg_apples = total_apples / len(image_paths) if image_paths else 0
+    avg_count = total_count / len(image_paths) if image_paths else 0
 
     # Write results to CSV
     csv_path = out_dir / "カウント結果.csv"
@@ -144,11 +170,11 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
             writer = csv.writer(f)
             writer.writerow(['画像ファイル名', '検出個数'])
             for res in results_list:
-                writer.writerow([res['image_name'], res['apple_count']])
+                writer.writerow([res['image_name'], res['fruit_count']])
             writer.writerow([])
             writer.writerow(['対象画像総数', len(image_paths)])
-            writer.writerow(['検出総数', total_apples])
-            writer.writerow(['平均検出数（画像あたり）', f"{avg_apples:.2f}"])
+            writer.writerow(['検出総数', total_count])
+            writer.writerow(['平均検出数（画像あたり）', f"{avg_count:.2f}"])
         log(f"📊 CSV results saved to: {csv_path.resolve()}")
     except Exception as e:
         log(f"⚠️ Warning: Failed to write CSV results: {e}")
@@ -157,8 +183,8 @@ def run_detection(source, model_path, conf_thresh, iou_thresh, imgsz, output_dir
     log("📊 DETECTION SUMMARY")
     log("=" * 50)
     log(f"Total Images Processed : {len(image_paths)}")
-    log(f"Total Apples Detected  : {total_apples}")
-    log(f"Average Apples / Image : {avg_apples:.2f}")
+    log(f"Total {fruit_name.capitalize()}s Detected  : {total_count}")
+    log(f"Average {fruit_name.capitalize()}s / Image : {avg_count:.2f}")
     log(f"Annotated Outputs Saved: {out_dir.resolve()}")
     log("=" * 50)
 
@@ -168,7 +194,7 @@ def main():
     default_model = "weights/best.pt" if Path("weights/best.pt").exists() else "yolo11n.pt"
 
     parser = argparse.ArgumentParser(description="Run Apple Detection on images")
-    parser.add_argument("--source", type=str, default="./apple_dataset/images/test",
+    parser.add_argument("--source", type=str, default="./dataset/apple_dataset/images/test",
                         help="Path to image file or directory of images")
     parser.add_argument("--model", type=str, default=default_model,
                         help="Path to model weights (.pt file)")

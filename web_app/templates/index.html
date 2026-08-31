@@ -21,15 +21,15 @@
         
         <!-- Header -->
         <header class="app-header">
-            <h1>AI画像カウントツールを体験できます！</h1>
-            <p class="subtitle">写真をアップロードするだけで、AIが自動で対象物を検出・カウントします。</p>
+            <h1>AI フルーツ自動検出・個数カウントシステム</h1>
+            <p class="subtitle">写真をアップロードするだけで、AIがリンゴ・オレンジ・ブルーベリー等のフルーツを自動で検出・カウントします。</p>
         </header>
 
         <!-- Steps Indicator -->
         <div class="steps-indicator">
             <div class="step-item">
                 <i class="fa-solid fa-cloud-arrow-up icon-blue"></i>
-                <span>① 画像をアップロード</span>
+                <span>① フルーツ選択・画像アップロード</span>
             </div>
             <div class="step-arrow">
                 <i class="fa-solid fa-arrow-right"></i>
@@ -53,10 +53,29 @@
             <!-- Column 1: Upload Image -->
             <section class="column-card">
                 <div class="column-header">
-                    <h2>① 画像をアップロード</h2>
+                    <h2>① フルーツモデル＆画像選択</h2>
                 </div>
                 
                 <div class="glass-card inner-card">
+                    <!-- Fruit Target Selector -->
+                    <div class="fruit-selector-box mb-4">
+                        <p class="selector-label"><i class="fa-solid fa-layer-group"></i> 検出対象フルーツを選択</p>
+                        <div class="fruit-pills-grid">
+                            <button class="fruit-pill active" data-fruit="apple" id="pill-apple">
+                                <span class="pill-icon">🍎</span> りんご
+                            </button>
+                            <button class="fruit-pill" data-fruit="orange" id="pill-orange">
+                                <span class="pill-icon">🍊</span> オレンジ
+                            </button>
+                            <button class="fruit-pill" data-fruit="blueberry" id="pill-blueberry">
+                                <span class="pill-icon">🫐</span> ブルーベリー
+                            </button>
+                            <button class="fruit-pill" data-fruit="auto" id="pill-auto">
+                                <span class="pill-icon">🔍</span> 自動モデル
+                            </button>
+                        </div>
+                    </div>
+
                     <h3 class="inner-title">画像をアップロードしてください</h3>
                     
                     <!-- Drag-and-drop Area -->

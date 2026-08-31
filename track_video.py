@@ -52,11 +52,11 @@ def draw_hud(frame, current_count, total_unique_count, crossed_count, fps, track
     y3 = int(108 * scale)
 
     # Top Left Title Banner
-    cv2.putText(frame, f"TOTAL UNIQUE APPLES: {total_unique_count}", (pad_x, y1),
+    cv2.putText(frame, f"TOTAL UNIQUE FRUITS: {total_unique_count}", (pad_x, y1),
                 cv2.FONT_HERSHEY_SIMPLEX, title_scale, (0, 255, 127), thick_main, cv2.LINE_AA)
 
     # Status String (Current Frame & Crossed)
-    status_str = f"Active Frame: {current_count} apples"
+    status_str = f"Active Frame: {current_count} fruit(s)"
     if enable_line:
         status_str += f"  |  Line Crossed: {crossed_count}"
     

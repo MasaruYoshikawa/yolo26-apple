@@ -170,7 +170,7 @@ def main():
     parser = argparse.ArgumentParser(description="Convert COCO Apple dataset to YOLO format")
     parser.add_argument("--coco-dir", type=str, default="/Volumes/MacHDD/Shinjuku/apple-Forked on 8-25-2026.coco",
                         help="Path to root directory of COCO dataset")
-    parser.add_argument("--output-dir", type=str, default="./apple_dataset",
+    parser.add_argument("--output-dir", type=str, default="./dataset/apple_dataset",
                         help="Path to output YOLO dataset directory")
     args = parser.parse_args()
 

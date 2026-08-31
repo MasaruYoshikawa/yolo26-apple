@@ -1,7 +1,0 @@
-path: ./orange_dataset_yolo
-train: images/train
-val: images/valid
-test: images/test
-
-names:
-  0: orange

@@ -1,6 +1,7 @@
 // State variables
 let currentFile = null;
 let currentDetections = [];
+let currentFruitType = 'apple';
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
@@ -27,6 +28,21 @@ const exportCsvBtn = document.getElementById('export-csv-btn');
 const historyTbody = document.getElementById('history-tbody');
 const emptyHistoryRow = document.getElementById('empty-history-row');
 const tableFooterSummary = document.getElementById('table-footer-summary');
+
+// --- Fruit Selection Pills ---
+const fruitPills = document.querySelectorAll('.fruit-pill');
+fruitPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+        fruitPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentFruitType = pill.getAttribute('data-fruit');
+        
+        // Auto re-detect if image is already selected
+        if (currentFile) {
+            runDetection();
+        }
+    });
+});
 
 // --- Slider Value Synchronization ---
 confSlider.addEventListener('input', (e) => {
@@ -113,6 +129,7 @@ async function runDetection() {
     
     const formData = new FormData();
     formData.append('image', currentFile);
+    formData.append('fruit_type', currentFruitType);
     formData.append('conf', confSlider.value);
     formData.append('iou', iouSlider.value);
     formData.append('imgsz', 640); // default inference size
@@ -133,7 +150,7 @@ async function runDetection() {
             currentDetections = result.detections || [];
             
             // 1. Update total counts
-            detectionCount.textContent = result.apple_count;
+            detectionCount.textContent = result.fruit_count !== undefined ? result.fruit_count : result.apple_count;
             
             // 2. Render annotated image in Column 2
             imgAnnotated.src = result.image_data;

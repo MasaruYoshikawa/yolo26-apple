@@ -17,8 +17,9 @@ apple_video.mp4
 preview.mp4
 
 # Generated datasets and training/detection output runs
-apple_dataset/
-orange_dataset/
+dataset/apple_dataset/
+dataset/orange_dataset/
+dataset/blueberry_dataset/
 runs/
 yolo11*.pt
 yolov8*.pt

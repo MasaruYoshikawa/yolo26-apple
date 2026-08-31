@@ -61,31 +61,35 @@ python3 track_video.py --source apple_video.mp4 --model "weights/best.pt" --enab
 ### Step 1: Convert Dataset (COCO to YOLO)
 Convert your Roboflow COCO dataset to YOLO format:
 ```bash
-python3 convert_coco_to_yolo.py --coco-dir "/Volumes/MacHDD/Shinjuku/apple-Forked on 8-25-2026.coco" --output-dir "./apple_dataset"
+python3 convert_coco_to_yolo.py --coco-dir "/Volumes/MacHDD/Shinjuku/apple-Forked on 8-25-2026.coco" --output-dir "./dataset/apple_dataset"
 ```
 
 ### Step 2: Train Model
-Fine-tune a YOLO model on the apple dataset (automatically uses Apple Silicon `mps`, `cuda`, or `cpu`):
+Fine-tune a YOLO model on a dataset (automatically uses Apple Silicon `mps`, `cuda`, or `cpu`):
 ```bash
-python3 train.py --data "./apple_dataset/apple_dataset.yaml" --model "yolo11n.pt" --epochs 50 --batch 16
+# Train Apple Model
+python3 train.py --data "./dataset/apple_dataset/apple_dataset.yaml" --model "yolo11n.pt" --epochs 50 --batch 16 --name "apple_model"
+
+# Train Orange Model
+python3 train.py --data "./dataset/orange_dataset_yolo/orange_dataset.yaml" --model "yolo11n.pt" --epochs 50 --batch 16 --name "orange_model"
 ```
 
 ### Step 3: Run Object Detection on Images
-Detect apples on single images or a directory of test images:
+Detect apples or fruits on single images or a directory of test images:
 ```bash
-python3 detect.py --source "./apple_dataset/images/test" --model "weights/best.pt" --conf 0.25
+python3 detect.py --source "./dataset/apple_dataset/images/test" --model "weights/apple_best.pt" --conf 0.25
 ```
 
 ### Step 4: Real-time Camera Stream Detection
 Stream live camera feed with optional ByteTrack tracking:
 ```bash
-python3 webcam_detect.py --source 0 --model "weights/best.pt" --tracker "bytetrack.yaml"
+python3 webcam_detect.py --source 0 --model "weights/apple_best.pt" --tracker "bytetrack.yaml"
 ```
 
 ### Step 5: Evaluate Model Performance
 Evaluate mAP50, mAP50-95, Precision, and Recall on validation/test sets:
 ```bash
-python3 evaluate.py --data "./apple_dataset/apple_dataset.yaml" --model "weights/best.pt" --split val
+python3 evaluate.py --data "./dataset/apple_dataset/apple_dataset.yaml" --model "weights/apple_best.pt" --split val
 ```
 
 ---

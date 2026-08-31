@@ -43,27 +43,55 @@ app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="stati
 # Setup Jinja2 Templates
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
-# Model global cache
-YOLO_MODEL = None
-MODEL_PATH = None
+# Model global cache (fruit_type -> (model_instance, model_path))
+MODEL_CACHE = {}
 
-def load_yolo_model():
-    """Lazy loads the YOLO model from best.pt or fallback."""
-    global YOLO_MODEL, MODEL_PATH
-    if YOLO_MODEL is not None:
-        return YOLO_MODEL
+def get_fruit_color(fruit_type):
+    """Returns distinct BGR colors for different fruit types."""
+    ft = str(fruit_type).lower()
+    if "orange" in ft:
+        return (30, 144, 255)    # Vibrant Amber / Orange (BGR)
+    elif "blueberry" in ft or "berry" in ft:
+        return (225, 105, 65)    # Royal Indigo / Violet (BGR)
+    else:
+        return (113, 204, 46)    # Emerald Green (BGR)
+
+
+def load_fruit_model(fruit_type: str = "apple"):
+    """Lazy loads and caches the YOLO model for specified fruit type."""
+    fruit_key = fruit_type.lower()
+    if fruit_key in MODEL_CACHE:
+        return MODEL_CACHE[fruit_key]
     
     from ultralytics import YOLO
 
-    # Search paths for model weights
-    search_paths = [
-        APP_DIR / "weights" / "best.pt",
-        WORKSPACE_DIR / "weights" / "best.pt",
-        APP_DIR / "best.pt",
-        WORKSPACE_DIR / "best.pt",
-        APP_DIR / "yolo11n.pt",
-        WORKSPACE_DIR / "yolo11n.pt"
-    ]
+    # Search paths for model weights based on requested fruit
+    if fruit_key == "orange":
+        search_paths = [
+            APP_DIR / "weights" / "orange_best.pt",
+            WORKSPACE_DIR / "weights" / "orange_best.pt",
+            WORKSPACE_DIR / "weights" / "best.pt",
+            APP_DIR / "yolo11n.pt",
+            WORKSPACE_DIR / "yolo11n.pt"
+        ]
+    elif fruit_key == "blueberry":
+        search_paths = [
+            APP_DIR / "weights" / "blueberry_best.pt",
+            WORKSPACE_DIR / "weights" / "blueberry_best.pt",
+            WORKSPACE_DIR / "weights" / "best.pt",
+            APP_DIR / "yolo11n.pt",
+            WORKSPACE_DIR / "yolo11n.pt"
+        ]
+    else: # apple or default
+        search_paths = [
+            APP_DIR / "weights" / "apple_best.pt",
+            WORKSPACE_DIR / "weights" / "apple_best.pt",
+            WORKSPACE_DIR / "weights" / "best.pt",
+            APP_DIR / "best.pt",
+            WORKSPACE_DIR / "best.pt",
+            APP_DIR / "yolo11n.pt",
+            WORKSPACE_DIR / "yolo11n.pt"
+        ]
     
     selected_path = None
     for p in search_paths:
@@ -72,17 +100,17 @@ def load_yolo_model():
             break
             
     if selected_path is None:
-        # If no model weights exist, download yolo11n.pt as a fallback
         selected_path = WORKSPACE_DIR / "yolo11n.pt"
-        print(f"⚠️ No custom weights found. Downloading fallback YOLO model to: {selected_path}")
+        print(f"⚠️ No custom weights found for '{fruit_key}'. Downloading fallback YOLO model to: {selected_path}")
         
-    print(f"📦 Loading YOLO model from: {selected_path.resolve()}")
-    YOLO_MODEL = YOLO(str(selected_path))
-    MODEL_PATH = selected_path
-    return YOLO_MODEL
+    print(f"📦 Loading YOLO model for '{fruit_key}' from: {selected_path.resolve()}")
+    model_instance = YOLO(str(selected_path))
+    MODEL_CACHE[fruit_key] = (model_instance, selected_path)
+    return MODEL_CACHE[fruit_key]
 
-def draw_apple_count_banner(image, apple_count, conf_threshold):
-    """Draws a clean top banner displaying the total number of detected apples."""
+
+def draw_fruit_count_banner(image, count, conf_threshold, fruit_name="Fruit"):
+    """Draws a clean top banner displaying the total number of detected fruits."""
     h, w, _ = image.shape
     banner_height = 60
     
@@ -91,11 +119,13 @@ def draw_apple_count_banner(image, apple_count, conf_threshold):
     cv2.rectangle(overlay, (0, 0), (w, banner_height), (20, 30, 40), -1)
     cv2.addWeighted(overlay, 0.85, image, 0.15, 0, image)
 
-    # Accent left border bar (vibrant emerald green)
-    cv2.rectangle(image, (0, 0), (8, banner_height), (0, 204, 102), -1)
+    # Accent left border bar
+    accent_color = get_fruit_color(fruit_name)
+    cv2.rectangle(image, (0, 0), (8, banner_height), accent_color, -1)
 
     # Banner text
-    title_text = f"Apple Detection | Count: {apple_count}"
+    display_name = fruit_name.capitalize()
+    title_text = f"{display_name} Detection | Count: {count}"
     sub_text = f"Conf Thresh: {conf_threshold:.2f}"
 
     cv2.putText(image, title_text, (20, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
@@ -103,21 +133,23 @@ def draw_apple_count_banner(image, apple_count, conf_threshold):
 
     return image
 
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """Serves the main application dashboard."""
-    model_name = "best.pt (Custom Apple Model)"
+    model_name = "Multi-Fruit AI Models"
     try:
-        load_yolo_model()
-        model_name = MODEL_PATH.name
+        load_fruit_model("apple")
     except Exception as e:
         model_name = f"Error loading model: {str(e)}"
         
     return templates.TemplateResponse(request=request, name="index.html", context={"model_name": model_name})
 
+
 @app.post("/detect")
 async def detect(
     image: UploadFile = File(...),
+    fruit_type: str = Form("apple"),
     conf: float = Form(0.25),
     iou: float = Form(0.45),
     imgsz: int = Form(640)
@@ -131,8 +163,8 @@ async def detect(
         if img is None:
             return JSONResponse({'success': False, 'error': 'Invalid image format'}, status_code=400)
             
-        # Get model instance
-        model = load_yolo_model()
+        # Get model instance for requested fruit
+        model, model_path = load_fruit_model(fruit_type)
         
         # Run inference
         t0 = time.time()
@@ -146,7 +178,8 @@ async def detect(
         inference_time_ms = (time.time() - t0) * 1000
         
         boxes = results.boxes
-        apple_count = len(boxes) if boxes is not None else 0
+        fruit_count = len(boxes) if boxes is not None else 0
+        box_color = get_fruit_color(fruit_type)
         
         # Draw annotations
         annotated_img = img.copy()
@@ -156,7 +189,7 @@ async def detect(
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                 box_conf = float(box.conf[0])
                 cls_id = int(box.cls[0])
-                cls_name = model.names.get(cls_id, "apple")
+                cls_name = model.names.get(cls_id, fruit_type)
                 
                 # Append detection info
                 w_box = x2 - x1
@@ -171,8 +204,6 @@ async def detect(
                     'h': h_box
                 })
                 
-                # Bounding box color (emerald green: RGB(46, 204, 113) -> BGR(113, 204, 46))
-                box_color = (113, 204, 46)
                 cv2.rectangle(annotated_img, (x1, y1), (x2, y2), box_color, 2)
                 
                 # Label text
@@ -184,7 +215,7 @@ async def detect(
                 cv2.putText(annotated_img, label, (x1 + 3, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
                 
         # Draw the top header banner
-        annotated_img = draw_apple_count_banner(annotated_img, apple_count, conf)
+        annotated_img = draw_fruit_count_banner(annotated_img, fruit_count, conf, fruit_name=fruit_type)
         
         # Encode annotated image to JPEG base64
         _, buffer = cv2.imencode('.jpg', annotated_img)
@@ -192,7 +223,9 @@ async def detect(
         
         return {
             'success': True,
-            'apple_count': apple_count,
+            'fruit_type': fruit_type,
+            'fruit_count': fruit_count,
+            'apple_count': fruit_count,  # Backwards compatibility
             'inference_time_ms': round(inference_time_ms, 1),
             'image_data': f"data:image/jpeg;base64,{img_base64}",
             'detections': detections
@@ -203,12 +236,14 @@ async def detect(
         traceback.print_exc()
         return JSONResponse({'success': False, 'error': f"Detection failed: {str(e)}"}, status_code=500)
 
+
 if __name__ == '__main__':
-    # Initialize the model on startup so that user doesn't wait on first request
+    # Initialize the model on startup
     try:
-        load_yolo_model()
+        load_fruit_model("apple")
     except Exception as e:
         print(f"⚠️ Warning: Could not pre-load model weights: {e}")
         
     import uvicorn
     uvicorn.run("app:app", host='0.0.0.0', port=5000, reload=True)
+

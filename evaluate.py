@@ -57,7 +57,7 @@ def main():
     default_model = "weights/best.pt" if Path("weights/best.pt").exists() else "yolo11n.pt"
 
     parser = argparse.ArgumentParser(description="Evaluate YOLO Apple Detection Model")
-    parser.add_argument("--data", type=str, default="./apple_dataset/apple_dataset.yaml",
+    parser.add_argument("--data", type=str, default="./dataset/apple_dataset/apple_dataset.yaml",
                         help="Path to dataset YAML file")
     parser.add_argument("--model", type=str, default=default_model,
                         help="Path to model weights file (.pt)")

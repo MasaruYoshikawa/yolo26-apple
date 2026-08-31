@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-りんご検出デスクトップアプリケーション (Apple Detection Desktop Application)
-YOLOを使用した画像データセット内のりんご自動検出・カウント用GUI（日本語版）
+AI フルーツ自動検出・個数カウントシステム (Multi-Fruit Detection Desktop Application)
+YOLOを使用した画像データセット内のフルーツ（りんご・オレンジ・ブルーベリー等）自動検出・カウント用GUI
 """
 
 import os
@@ -20,10 +20,10 @@ except ImportError:
     from detect import run_detection
 
 
-class AppleDetectionApp:
+class FruitDetectionApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("りんご物体検出・個数カウントシステム")
+        self.root.title("AI フルーツ自動検出・個数カウントシステム")
         # Centering the window on the screen on startup
         width = 1000
         height = 820
@@ -43,7 +43,9 @@ class AppleDetectionApp:
         else:
             self.workspace_dir = Path(__file__).parent.resolve()
             
-        default_dataset = self.workspace_dir / "apple_dataset" / "images" / "test"
+        default_dataset = self.workspace_dir / "dataset" / "apple_dataset" / "images" / "test"
+        if not default_dataset.exists():
+            default_dataset = self.workspace_dir / "dataset"
         if not default_dataset.exists():
             default_dataset = self.workspace_dir
             
@@ -54,6 +56,7 @@ class AppleDetectionApp:
         # 状態変数
         self.source_dir_var = tk.StringVar(value=str(default_dataset))
         self.model_path_var = tk.StringVar(value=str(default_model))
+        self.fruit_type_var = tk.StringVar(value="🍎 りんご (Apple)")
         self.conf_var = tk.DoubleVar(value=0.25)
         self.iou_var = tk.DoubleVar(value=0.45)
         self.device_var = tk.StringVar(value="cpu")
@@ -125,6 +128,44 @@ class AppleDetectionApp:
 
         # プログレスバーのスタイル定義
         style.configure("Horizontal.TProgressbar", thickness=15, troughcolor=self.card_bg, background=self.accent_color, borderwidth=0)
+
+    def on_fruit_changed(self, event=None):
+        """フルーツプリセット切り替え時に対応する重みファイルを自動設定"""
+        selection = self.fruit_type_var.get()
+        weights_dir = self.workspace_dir / "weights"
+        
+        if "りんご" in selection or "Apple" in selection:
+            path = weights_dir / "apple_best.pt"
+            if not path.exists():
+                path = weights_dir / "best.pt"
+        elif "オレンジ" in selection or "Orange" in selection:
+            path = weights_dir / "orange_best.pt"
+        elif "ブルーベリー" in selection or "Blueberry" in selection:
+            path = weights_dir / "blueberry_best.pt"
+        else:
+            return
+
+        if path.exists():
+            self.model_path_var.set(str(path.resolve()))
+        else:
+            # モデ﻿ルが見つからない場合のフォールバック
+            fallback = self.workspace_dir / "yolo11n.pt"
+            if fallback.exists():
+                self.model_path_var.set(str(fallback.resolve()))
+            else:
+                self.model_path_var.set(str(path.resolve()))
+
+    def get_active_fruit_name(self):
+        """現在選択されているフルーツの英語名を取得"""
+        selection = self.fruit_type_var.get()
+        if "オレンジ" in selection or "Orange" in selection:
+            return "orange"
+        elif "ブルーベリー" in selection or "Blueberry" in selection:
+            return "blueberry"
+        elif "りんご" in selection or "Apple" in selection:
+            return "apple"
+        else:
+            return "fruit"
         
     def create_widgets(self):
         """ウィジェットの配置とレイアウト構成"""
@@ -135,10 +176,10 @@ class AppleDetectionApp:
         header_frame = ttk.Frame(main_container)
         header_frame.pack(fill=tk.X, pady=(0, 15))
         
-        title_lbl = ttk.Label(header_frame, text="🍎 りんご画像検出システム", style="Header.TLabel")
+        title_lbl = ttk.Label(header_frame, text="🍎🍊🫐 AI フルーツ自動検出・個数カウントシステム", style="Header.TLabel")
         title_lbl.pack(side=tk.LEFT)
         
-        subtitle_lbl = ttk.Label(header_frame, text=" YOLOv11 / PyTorch パイプライン ", style="TLabel")
+        subtitle_lbl = ttk.Label(header_frame, text=" YOLOv11 / PyTorch マルチモデル ", style="TLabel")
         subtitle_lbl.pack(side=tk.RIGHT, pady=(5, 0))
 
         # 区切り線
@@ -153,6 +194,21 @@ class AppleDetectionApp:
         inputs_frame = ttk.Frame(config_and_stats)
         inputs_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         
+        # 対象フルーツの選択行
+        fruit_frame = ttk.Frame(inputs_frame)
+        fruit_frame.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(fruit_frame, text="検出対象フルーツモデル:").pack(anchor=tk.W, pady=(0, 2))
+        
+        fruit_options = [
+            "🍎 りんご (Apple)",
+            "🍊 オレンジ (Orange)",
+            "🫐 ブルーベリー (Blueberry)",
+            "🔍 カスタムモデル (Custom)"
+        ]
+        fruit_combo = ttk.Combobox(fruit_frame, textvariable=self.fruit_type_var, values=fruit_options, state="readonly")
+        fruit_combo.pack(fill=tk.X)
+        fruit_combo.bind("<<ComboboxSelected>>", self.on_fruit_changed)
+
         # 対象画像フォルダの選択行
         folder_frame = ttk.Frame(inputs_frame)
         folder_frame.pack(fill=tk.X, pady=(0, 8))
@@ -231,8 +287,8 @@ class AppleDetectionApp:
         self.stat_images_val = ttk.Label(stats_card, text="0", style="StatsVal.TLabel")
         self.stat_images_val.pack(anchor=tk.W, pady=(0, 8))
         
-        # 検出されたりんご総数表示
-        ttk.Label(stats_card, text="検出りんご総数", style="StatsLbl.TLabel").pack(anchor=tk.W)
+        # 検出されたフルーツ総数表示
+        ttk.Label(stats_card, text="検出フルーツ総数", style="StatsLbl.TLabel").pack(anchor=tk.W)
         self.stat_apples_val = ttk.Label(stats_card, text="0", style="StatsVal.TLabel")
         self.stat_apples_val.pack(anchor=tk.W, pady=(0, 8))
         
@@ -340,7 +396,7 @@ class AppleDetectionApp:
         self.log_text.config(state=tk.NORMAL)
         self.log_text.delete('1.0', tk.END)
         self.log_text.config(state=tk.DISABLED)
-        self.append_log(f"▶️ りんご検出処理を開始しました: {src}\n")
+        self.append_log(f"▶️ フルーツ検出処理を開始しました ({self.fruit_type_var.get()}): {src}\n")
         self.append_log(f"モデルパス    : {model}\n")
         self.append_log(f"出力フォルダ  : {out}\n")
         self.append_log("-" * 60 + "\n")
@@ -352,6 +408,7 @@ class AppleDetectionApp:
 
     def run_pipeline(self, src, model, out):
         try:
+            fruit_name = self.get_active_fruit_name()
             # detect.pyの処理をコールバック付きで実行
             run_detection(
                 source=src,
@@ -362,6 +419,7 @@ class AppleDetectionApp:
                 output_dir=out,
                 device=self.device_var.get(),
                 show=False,
+                fruit_name=fruit_name,
                 progress_callback=self.thread_safe_progress,
                 log_callback=self.thread_safe_log
             )
@@ -383,22 +441,23 @@ class AppleDetectionApp:
         # ログコンソールから最終サマリーデータを抽出してカードを更新
         log_content = self.log_text.get('1.0', tk.END)
         total_img = "0"
-        total_apples = "0"
-        avg_apples = "0.00"
+        total_fruits = "0"
+        avg_fruits = "0.00"
         
         for line in log_content.splitlines():
             if "Total Images Processed :" in line:
                 total_img = line.split(":")[-1].strip()
-            elif "Total Apples Detected  :" in line:
-                total_apples = line.split(":")[-1].strip()
-            elif "Average Apples / Image :" in line:
-                avg_apples = line.split(":")[-1].strip()
+            elif "Detected" in line and ":" in line:
+                total_fruits = line.split(":")[-1].strip()
+            elif "Average" in line and "/" in line and ":" in line:
+                avg_fruits = line.split(":")[-1].strip()
                 
         self.stat_images_val.config(text=total_img)
-        self.stat_apples_val.config(text=total_apples)
-        self.stat_avg_val.config(text=avg_apples)
+        self.stat_apples_val.config(text=total_fruits)
+        self.stat_avg_val.config(text=avg_fruits)
         
-        messagebox.showinfo("成功", "りんごの検出処理が正常に完了しました！")
+        fruit_display = self.fruit_type_var.get()
+        messagebox.showinfo("成功", f"検出処理 ({fruit_display}) が正常に完了しました！")
 
     def on_pipeline_failure(self, error_msg):
         self.is_running = False
@@ -408,21 +467,32 @@ class AppleDetectionApp:
 
     def open_output_folder(self):
         out_dir = self.output_dir_var.get()
-        if os.path.exists(out_dir):
+        if not os.path.exists(out_dir):
             try:
-                os.startfile(out_dir)
-            except Exception as e:
-                # 代替のエクスプローラー起動
-                import subprocess
-                subprocess.run(["explorer", os.path.normpath(out_dir)])
-        else:
-            messagebox.showwarning("フォルダが見つかりません", f"出力フォルダ '{out_dir}' が存在しません。")
+                os.makedirs(out_dir, exist_ok=True)
+            except Exception:
+                messagebox.showwarning("フォルダが見つかりません", f"出力フォルダ '{out_dir}' が存在しません。")
+                return
+
+        import subprocess
+        try:
+            if sys.platform == 'win32':
+                if hasattr(os, 'startfile'):
+                    os.startfile(out_dir)
+                else:
+                    subprocess.run(["explorer", os.path.normpath(out_dir)])
+            elif sys.platform == 'darwin':
+                subprocess.run(["open", out_dir])
+            else:  # Linux / Unix
+                subprocess.run(["xdg-open", out_dir])
+        except Exception as e:
+            messagebox.showerror("エラー", f"フォルダを開くことができませんでした:\n{str(e)}")
 
 
 def main():
     root = tk.Tk()
     root.withdraw() # Hide default small window during initialization
-    app = AppleDetectionApp(root)
+    app = FruitDetectionApp(root)
     root.deiconify() # Show the window only when fully configured and centered
     root.mainloop()
 
